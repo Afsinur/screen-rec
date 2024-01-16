@@ -1,25 +1,7 @@
-let start = document.getElementById("start"),
-  stop = document.getElementById("stop"),
-  mediaRecorder;
-
-start.addEventListener("click", async function () {
-  let { stream, audio } = await recordScreen();
-  let mimeType = "video/mp4";
-
-  mediaRecorder = createRecorder({ stream, audio }, mimeType);
-
-  let node = document.createElement("p");
-  node.textContent = "Started recording";
-  document.body.appendChild(node);
-});
-
-stop.addEventListener("click", function () {
-  mediaRecorder.stop();
-
-  let node = document.createElement("p");
-  node.textContent = "Stopped recording";
-  document.body.appendChild(node);
-});
+let mediaRecorder;
+let recordedChunks = [];
+let isPaused = false;
+let isMuted = false;
 
 async function recordScreen() {
   const stream = await navigator.mediaDevices.getDisplayMedia({
@@ -40,32 +22,83 @@ async function recordScreen() {
   return { stream, audio };
 }
 
-function createRecorder({ stream, audio }, mimeType) {
-  // the stream data is stored in this array
-  let recordedChunks = [];
+async function startRecording() {
+  const { stream, audio } = await recordScreen();
 
-  const mixedStream = new MediaStream([
-    ...stream.getTracks(),
-    ...audio.getTracks(),
-  ]);
-  const mediaRecorder = new MediaRecorder(mixedStream);
+  try {
+    const mixedStream = new MediaStream([
+      ...stream.getTracks(),
+      ...audio.getTracks(),
+    ]);
 
-  mediaRecorder.ondataavailable = function (e) {
-    if (e.data.size > 0) {
-      recordedChunks.push(e.data);
-    }
-  };
+    mediaRecorder = new MediaRecorder(mixedStream);
 
-  mediaRecorder.onstop = function () {
-    saveFile(recordedChunks);
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        recordedChunks.push(event.data);
+      }
+    };
 
-    recordedChunks = [];
-    stream.getTracks().forEach((track) => track.stop());
-    audio.getTracks().forEach((track) => track.stop());
-  };
+    mediaRecorder.onstop = function () {
+      document.getElementById("muteBtn").disabled = true;
 
-  mediaRecorder.start(200); // For every 200ms the stream data will be stored in a separate chunk.
-  return mediaRecorder;
+      saveFile(recordedChunks);
+
+      const blob = new Blob(recordedChunks, { type: "video/mp4" });
+      const videoUrl = URL.createObjectURL(blob);
+      const videoPlayer = document.getElementById("videoPlayer");
+      videoPlayer.src = videoUrl;
+
+      recordedChunks = [];
+      stream.getTracks().forEach((track) => track.stop());
+      audio.getTracks().forEach((track) => track.stop());
+    };
+
+    mediaRecorder.onpause = () => {
+      isPaused = true;
+      document.getElementById("pauseBtn").textContent = "Resume Recording";
+      document.getElementById("muteBtn").disabled = true;
+    };
+
+    mediaRecorder.onresume = () => {
+      isPaused = false;
+      document.getElementById("pauseBtn").textContent = "Pause Recording";
+      document.getElementById("muteBtn").disabled = false;
+    };
+
+    mediaRecorder.onstart = () => {
+      document.getElementById("startBtn").disabled = true;
+      document.getElementById("pauseBtn").disabled = false;
+      document.getElementById("stopBtn").disabled = false;
+      document.getElementById("muteBtn").disabled = false;
+    };
+
+    mediaRecorder.start();
+  } catch (error) {
+    console.error("Error accessing media devices:", error);
+  }
+}
+
+function pauseResumeRecording() {
+  if (isPaused) {
+    mediaRecorder.resume();
+  } else {
+    mediaRecorder.pause();
+  }
+}
+
+function stopRecording() {
+  mediaRecorder.stop();
+  document.getElementById("startBtn").disabled = false;
+  document.getElementById("pauseBtn").disabled = true;
+  document.getElementById("stopBtn").disabled = true;
+  document.getElementById("muteBtn").disabled = true;
+}
+
+function toggleMute() {
+  isMuted = !isMuted;
+  mediaRecorder.stream.getAudioTracks()[0].enabled = !isMuted;
+  document.getElementById("muteBtn").textContent = isMuted ? `Unmute` : `Mute`;
 }
 
 function saveFile(recordedChunks) {

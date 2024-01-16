@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Screen Recorder</title>
+    <link rel="stylesheet" href="./css/style.css" />
+    <script src="./js/app.js" defer></script>
+  </head>
+  <body>
+    <button id="startBtn" onclick="startRecording()">Start Recording</button>
+    <button id="pauseBtn" onclick="pauseResumeRecording()" disabled>
+      Pause Recording
+    </button>
+    <button id="stopBtn" onclick="stopRecording()" disabled>
+      Stop Recording
+    </button>
+    <button id="muteBtn" onclick="toggleMute()" disabled>Mute</button>
+    <video id="videoPlayer" controls width="400"></video>
+  </body>
+</html>
